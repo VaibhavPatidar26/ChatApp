@@ -12,6 +12,7 @@ const AppProvider = ({ children }) => {
   
     const [messageInput, setMessageInput] = useState("");
     const [conversation, setConversation] = useState([]);
+    const [userEmail,setuserEmail] = useState("")
   const [userId,setuserId] = useState(()=>{
     return localStorage.getItem("userId")
   })
@@ -29,7 +30,9 @@ const AppProvider = ({ children }) => {
        messageInput,
         setMessageInput,
         conversation,
-        setConversation
+        setConversation,
+        userEmail,
+        setuserEmail
          }}>
       {children}
     </AppContext.Provider>

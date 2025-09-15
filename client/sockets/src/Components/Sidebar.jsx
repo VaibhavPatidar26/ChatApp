@@ -1,11 +1,43 @@
-import React from "react";
+import React, { useContext, useState } from "react";
 import { Search, MoreVertical, MessageSquare } from "lucide-react";
-import { useContext } from "react";
 import { AppContext } from "../Context/AppContext";
+import { apiSearchUsers } from "../api/users";
 
-const Sidebar = ({contacts}) => {
+const Sidebar = ({ contacts }) => {
+  const {
+    setreceiverName,
+    recieverId,
+    setreceiverId,
+    userEmail,
+    setuserEmail,
+    token,
+    backendUrl,
+  } = useContext(AppContext);
 
-const {setreceiverName,recieverId,setreceiverId} = useContext(AppContext)
+  const [SearchUserData, setSearchUserData] = useState([]);
+
+  // 🔎 Search user
+  async function searchUser(Useremail) {
+    if (!Useremail.trim()) {
+      setSearchUserData([]); // clear search if empty
+      return;
+    }
+
+    try {
+      let response = await apiSearchUsers(token, backendUrl, Useremail);
+      let data = response.data || response;
+
+      if (data.success) {
+        // backend returns single user, wrap in array for mapping
+        setSearchUserData(data.searchedUser ? [data.searchedUser] : []);
+      } else {
+        setSearchUserData([]);
+      }
+    } catch (error) {
+      console.error("Error searching user:", error);
+      setSearchUserData([]);
+    }
+  }
 
   return (
     <div className="flex flex-col w-80 h-screen border-r bg-white">
@@ -24,6 +56,12 @@ const {setreceiverName,recieverId,setreceiverId} = useContext(AppContext)
           <Search className="w-5 h-5 text-gray-500" />
           <input
             type="text"
+            value={userEmail}
+            onChange={(e) => {
+              const value = e.target.value;
+              setuserEmail(value);
+              searchUser(value); // ✅ use fresh value
+            }}
             placeholder="Search users"
             className="ml-2 bg-transparent outline-none w-full text-sm"
           />
@@ -32,12 +70,12 @@ const {setreceiverName,recieverId,setreceiverId} = useContext(AppContext)
 
       {/* User list */}
       <div className="flex-1 overflow-y-auto">
-        {contacts.map((user) => (
+        {(SearchUserData.length > 0 ? SearchUserData : contacts).map((user) => (
           <div
             key={user._id}
-            onClick={()=>{
-              setreceiverName(user.Name)
-              setreceiverId(user._id)
+            onClick={() => {
+              setreceiverName(user.Name);
+              setreceiverId(user._id);
             }}
             className="flex items-center p-3 hover:bg-gray-100 cursor-pointer border-b"
           >
@@ -49,11 +87,7 @@ const {setreceiverName,recieverId,setreceiverId} = useContext(AppContext)
             {/* Info */}
             <div className="ml-3 flex-1">
               <h3 className="text-sm font-semibold">{user.Name}</h3>
-              {/* <p className="text-xs text-gray-500 truncate">{user.lastMessage}</p> */}
             </div>
-
-            {/* Time */}
-            {/* <span className="text-xs text-gray-400">{user.time}</span> */}
           </div>
         ))}
       </div>
@@ -62,3 +96,4 @@ const {setreceiverName,recieverId,setreceiverId} = useContext(AppContext)
 };
 
 export default Sidebar;
+         
