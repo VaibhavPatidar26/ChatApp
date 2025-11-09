@@ -51,7 +51,8 @@ if(!user){
         message:"user created successfully",
         success:true,
         token:token,
-        userId:newUser._id
+        userId:newUser._id,
+        name:name
     })
 
 }
@@ -104,6 +105,7 @@ async function loginUser(req, res) {
             success: true,
             token: token,
             userId:user._id,
+            name:user.Name
         });
 
     } catch (error) {

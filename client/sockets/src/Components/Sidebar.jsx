@@ -12,6 +12,8 @@ const Sidebar = ({ contacts }) => {
     setuserEmail,
     token,
     backendUrl,
+    userName,
+    setUserName
   } = useContext(AppContext);
 
   const [SearchUserData, setSearchUserData] = useState([]);
@@ -28,7 +30,7 @@ const Sidebar = ({ contacts }) => {
       let data = response.data || response;
 
       if (data.success) {
-        // backend returns single user, wrap in array for mapping
+       
         setSearchUserData(data.searchedUser ? [data.searchedUser] : []);
       } else {
         setSearchUserData([]);
@@ -44,6 +46,7 @@ const Sidebar = ({ contacts }) => {
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b bg-blue-50">
         <h2 className="font-bold text-lg text-blue-600">Chats</h2>
+        <h2> hi {userName} </h2>
         <div className="flex space-x-3 text-gray-600">
           <MessageSquare className="w-5 h-5 cursor-pointer hover:text-blue-600" />
           <MoreVertical className="w-5 h-5 cursor-pointer hover:text-blue-600" />

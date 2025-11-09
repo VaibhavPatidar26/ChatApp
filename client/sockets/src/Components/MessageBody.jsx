@@ -1,26 +1,77 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
-import { MoreVertical, Send } from "lucide-react";
+import { MoreVertical, Send, Trash } from "lucide-react";
 import { AppContext } from "../Context/AppContext";
 import { apiDeleteMessages, apiGetUserChats } from "../api/messages";
-import { Trash } from 'lucide-react';
-
+import MessageDropdown from "./UI/dropdown";
+import { uploadFile } from "../Hooks/UploadFIles";
 
 const MessageBody = () => {
-  const { token, backendUrl, receiverName, receiverId, userId,messageInput,setMessageInput,conversation,setConversation} =
-    useContext(AppContext);
+  const {
+    token,
+    backendUrl,
+    receiverName,
+    receiverId,
+    userId,
+    messageInput,
+    setMessageInput,
+    conversation,
+    setConversation,
+  } = useContext(AppContext);
 
- 
-
+  const { upload_file } = uploadFile(backendUrl, token);
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
 
-  // Fetch chat history
+  // ------------------ File Upload & Send ------------------
+  async function handleFileChange(e) {
+    const file = e.target.files[0];
+    if (!file) {
+      alert("No file selected");
+      return;
+    }
+
+    const url = await upload_file(file); // ✅ add await here!
+    if (!url) {
+      alert("Upload failed");
+      return;
+    }
+
+    // Detect file type
+    const fileType = file.type.startsWith("image/")
+      ? "image"
+      : file.type.startsWith("video/")
+      ? "video"
+      : "document";
+
+    // Send uploaded file URL as a message
+    socketRef.current.send(
+      JSON.stringify({
+        type: "SendMessage",
+        fileType,
+        fileUrl: url,
+        to: receiverId,
+      })
+    );
+
+    // Update UI instantly
+    setConversation((prev) => [
+      ...prev,
+      {
+        from: String(userId),
+        to: String(receiverId),
+        message: url,
+        fileType,
+        createdAt: Date.now(),
+      },
+    ]);
+  }
+
+  // ------------------ Fetch Chat History ------------------
   useEffect(() => {
     async function fetchMessageHistory() {
       try {
-        let response = await apiGetUserChats(token, backendUrl, receiverId);
+        const response = await apiGetUserChats(token, backendUrl, receiverId);
         if (response && Array.isArray(response.data.fetchMessages)) {
-          // normalize id types
           const chatHistory = response.data.fetchMessages.map((msg) => ({
             ...msg,
             from: String(msg.from),
@@ -32,10 +83,11 @@ const MessageBody = () => {
         console.error("Failed to load history:", err);
       }
     }
+
     if (receiverId) fetchMessageHistory();
   }, [receiverId, token, backendUrl]);
 
-  // WebSocket setup
+  // ------------------ WebSocket Setup ------------------
   useEffect(() => {
     const socket = new WebSocket(`${backendUrl.replace("http", "ws")}`);
     socketRef.current = socket;
@@ -52,13 +104,15 @@ const MessageBody = () => {
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+
         if (data.type === "recievedMessage") {
           setConversation((prev) => [
             ...prev,
             {
               from: String(data.from),
               to: String(userId),
-              message: data.message,
+              message: data.message || data.fileUrl,
+              fileType: data.fileType || "text",
               createdAt: Date.now(),
             },
           ]);
@@ -71,12 +125,12 @@ const MessageBody = () => {
     return () => socket.close();
   }, []);
 
-  // Auto-scroll
+  // ------------------ Auto-scroll ------------------
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [conversation]);
 
-  // Send message
+  // ------------------ Send Text Message ------------------
   async function sendMessage() {
     if (!messageInput.trim()) return;
 
@@ -94,6 +148,7 @@ const MessageBody = () => {
         from: String(userId),
         to: String(receiverId),
         message: messageInput,
+        fileType: "text",
         createdAt: Date.now(),
       },
     ]);
@@ -101,19 +156,20 @@ const MessageBody = () => {
     setMessageInput("");
   }
 
-
- async function deleteMessage(messageId){
-  
-    let response = await apiDeleteMessages(token,backendUrl,messageId)
-    let data = response.data
-    if(data.success){
-      setConversation((prev)=>(prev.filter((msg)=>(msg.id!==messageId))))
+  // ------------------ Delete Message ------------------
+  async function deleteMessage(messageId) {
+    let response = await apiDeleteMessages(token, backendUrl, messageId);
+    let data = response.data;
+    if (data.success) {
+      setConversation((prev) => prev.filter((msg) => msg.id !== messageId));
     }
-  
- }
+  }
 
+  // ------------------ UI ------------------
   return !receiverName ? (
-    <h1 className="text-3xl font-bold p-6">👋 Select a chat to start messaging</h1>
+    <h1 className="text-3xl font-bold p-6">
+      👋 Select a chat to start messaging
+    </h1>
   ) : (
     <div className="flex flex-col flex-1 h-screen">
       {/* Header */}
@@ -133,7 +189,7 @@ const MessageBody = () => {
           const isMine = String(msg.from) === String(userId);
           return (
             <div
-              key={msg.id}
+              key={msg.id || index}
               className={`flex ${isMine ? "justify-end" : "justify-start"}`}
             >
               <div
@@ -143,20 +199,45 @@ const MessageBody = () => {
                     : "bg-gray-200 text-gray-800 rounded-bl-none"
                 }`}
               >
-                <p>{msg.message}</p>
-                <div className="flex justify-between items-center mt-1">
-  <span className="text-[10px] opacity-70">
-    {new Date(msg.createdAt).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    })}
-  </span >
-  <Trash onClick={()=>{
-    deleteMessage(msg.id)
-  }} className="w-3 h-3 text-red-500 cursor-pointer" />
-</div>
+                {/* Render content based on file type */}
+                {msg.fileType === "image" ? (
+                  <img
+                    src={msg.message}
+                    alt="sent"
+                    className="rounded-lg max-w-[200px] mb-1"
+                  />
+                ) : msg.fileType === "video" ? (
+                  <video
+                    controls
+                    src={msg.message}
+                    className="rounded-lg max-w-[200px] mb-1"
+                  />
+                ) : msg.fileType === "document" ? (
+                  <a
+                    href={msg.message}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline text-blue-200"
+                  >
+                    📄 Open Document
+                  </a>
+                ) : (
+                  <p>{msg.message}</p>
+                )}
 
-                
+                {/* Timestamp + Delete */}
+                <div className="flex justify-between items-center mt-1">
+                  <span className="text-[10px] opacity-70">
+                    {new Date(msg.createdAt).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                  <Trash
+                    onClick={() => deleteMessage(msg.id)}
+                    className="w-3 h-3 text-red-400 cursor-pointer hover:text-red-600"
+                  />
+                </div>
               </div>
             </div>
           );
@@ -169,19 +250,32 @@ const MessageBody = () => {
         <input
           type="text"
           value={messageInput}
-          onKeyDown={(e)=>{
-            if(e.key=="Enter"){
-              e.preventDefault()
-              sendMessage()
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              sendMessage();
             }
           }}
           onChange={(e) => setMessageInput(e.target.value)}
           placeholder="Type a message..."
           className="flex-1 px-4 py-2 bg-gray-100 rounded-full outline-none text-sm"
         />
-        <button 
+
+        {/* Hidden file input */}
+        <input
+          type="file"
+          id="fileInput"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+
+        {/* Dropdown for upload */}
+        <label htmlFor="fileInput" className="cursor-pointer">
+          <MessageDropdown />
+        </label>
+
+        <button
           className="ml-3 bg-blue-500 p-2 rounded-full text-white hover:bg-blue-600"
-         
           onClick={sendMessage}
         >
           <Send className="w-5 h-5" />

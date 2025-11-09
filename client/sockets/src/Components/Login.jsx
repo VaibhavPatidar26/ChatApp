@@ -5,6 +5,9 @@ import {AppContext} from "../Context/AppContext";
 import axios from "axios";
 import {toast} from "react-toastify"
 import { useNavigate } from "react-router";
+
+
+
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
     let {backendUrl,token,setToken,setuserId} = useContext(AppContext)
@@ -28,25 +31,28 @@ export default function Login() {
           setToken(data.token);
           setuserId(data.userId)
           localStorage.setItem("userId",data.userId)
-
+          localStorage.setItem("userName",data.name)
           localStorage.setItem("token", data.token);
           navigate("/chat")
           
         }
       } else {
-        const { data } = await axios.post(`${backendUrl}api/users/register`, {
-          Name,
+        const { data } = await axios.post(`${backendUrl}/api/users/register`, {
+          name:Name,
           email: email,
           password: Password,
           confirmPass,
         });
         toast.success(data.message);
+        console.log(data)
         if (data.success) {
           setToken(data.token);
           setuserId(data.userId)
           localStorage.setItem("userId",data.userId)
           localStorage.setItem("token", data.token);
-          navigate("/chat")
+          localStorage.setItem("userName",data.name)
+          
+          navigate("/chat") 
           
         }
       }
