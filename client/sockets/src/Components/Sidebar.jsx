@@ -2,6 +2,8 @@ import React, { useContext, useState } from "react";
 import { Search, MoreVertical, MessageSquare } from "lucide-react";
 import { AppContext } from "../Context/AppContext";
 import { apiSearchUsers } from "../api/users";
+import { LogOut } from 'lucide-react';
+import {useNavigate} from "react-router"
 
 const Sidebar = ({ contacts }) => {
   const {
@@ -11,12 +13,25 @@ const Sidebar = ({ contacts }) => {
     userEmail,
     setuserEmail,
     token,
+    setToken,
     backendUrl,
     userName,
     setUserName
   } = useContext(AppContext);
 
   const [SearchUserData, setSearchUserData] = useState([]);
+
+  const navigate = useNavigate();
+
+function logoutHandler(){
+  localStorage.removeItem("token")
+  setToken(null);
+  navigate("/")
+}
+
+
+
+
 
   // 🔎 Search user
   async function searchUser(Useremail) {
@@ -48,7 +63,9 @@ const Sidebar = ({ contacts }) => {
         <h2 className="font-bold text-lg text-blue-600">Chats</h2>
         <h2> hi {userName} </h2>
         <div className="flex space-x-3 text-gray-600">
-          <MessageSquare className="w-5 h-5 cursor-pointer hover:text-blue-600" />
+          <LogOut onClick={()=>{
+            logoutHandler()
+          }} className="w-5 h-5 cursor-pointer hover:text-blue-600" />
           <MoreVertical className="w-5 h-5 cursor-pointer hover:text-blue-600" />
         </div>
       </div>
