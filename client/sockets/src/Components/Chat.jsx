@@ -1,30 +1,39 @@
-import React, { useContext, useEffect } from "react";
-import Sidebar from "./Sidebar";   // ✅ import your Sidebar component, not lucide-react
+import React, { useContext, useEffect, useState } from "react";
+import Sidebar from "./Sidebar";
 import MessageBody from "./MessageBody";
-import { apiGetUsers } from "../api/users";
 import { AppContext } from "../Context/AppContext";
-import { useState } from "react";
+import { getUsers } from "../api/users";
+
 const Chat = () => {
-const [contacts , setContacts] = useState([])
-const [userName,setuserName] = useState("")
+  const { token } = useContext(AppContext);
+  const [contacts, setContacts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-let {token,backendUrl} = useContext(AppContext)
-useEffect(()=>{
-  async function fetchUsers(){
-    let response = await apiGetUsers(token,backendUrl)
-    setContacts(response.data.contacts)
-  }
-  fetchUsers()
-},[])
+  // ---------------- FETCH CONTACTS ----------------
+  useEffect(() => {
+    if (!token) return;
 
+    const fetchContacts = async () => {
+      try {
+        setLoading(true);
+        const data = await getUsers(); // token handled in axios instance
+        setContacts(data.contacts || []);
+      } catch (err) {
+        setError(err.message || "Failed to load contacts");
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    fetchContacts();
+  }, [token]);
 
-console.log(contacts)
   return (
     <div className="h-screen w-screen flex">
       {/* Sidebar (left) */}
       <div className="w-80 border-r">
-        <Sidebar contacts={contacts} />
+        <Sidebar contacts={contacts} loading={loading} error={error} />
       </div>
 
       {/* Message Body (right) */}

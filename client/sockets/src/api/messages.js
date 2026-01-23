@@ -1,15 +1,23 @@
-import axios from "axios"
+import axios from "./axios";
 
-export async function apiGetUserChats(token,backendUrl,receiverId){
-
-    let response = await axios.get(`${backendUrl}/api/messages/userchats/${receiverId}`,{headers:{Authorization: `Bearer ${token}`}})
-    console.log(response);
-    return response;
-
+// ---------------- GET CHAT MESSAGES ----------------
+export async function getUserChats(receiverId) {
+  try {
+    const res = await axios.get(`/api/messages/userchats/${receiverId}`);
+    return res.data;
+  } catch (err) {
+    console.error("Error fetching chats:", err);
+    throw err.response?.data || { message: "Server error", success: false };
+  }
 }
 
-export async function apiDeleteMessages(token,backendUrl,messageId){
-    let response = await axios.patch(`${backendUrl}/api/messages/deletechats/${messageId}`,{},{headers:{Authorization:`Bearer ${token}`}})
-    console.log(response)
-    return response
+// ---------------- DELETE MESSAGE ----------------
+export async function deleteMessage(messageId) {
+  try {
+    const res = await axios.patch(`/api/messages/deletechats/${messageId}`);
+    return res.data;
+  } catch (err) {
+    console.error("Error deleting message:", err);
+    throw err.response?.data || { message: "Server error", success: false };
+  }
 }

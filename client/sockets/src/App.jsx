@@ -1,24 +1,26 @@
-import { useState, useEffect, useRef } from "react";
-import axios from "axios";
-import { Route } from "react-router";
-import { Routes } from "react-router";
+// src/App.jsx
+import { Routes, Route } from "react-router-dom";
 import Login from "./Components/Login";
 import Chat from "./Components/Chat";
-import Sidebar from "./Components/sidebar";
-function App() {
-return(
-  <>
- <Routes>
-  <Route element={<Login></Login>} path="/"></Route>
-  <Route element={<Chat></Chat>} path="/chat"></Route>
-  <Route element={<Sidebar></Sidebar>} path="sidebar"></Route>
-  
-  
-  </Routes> 
-  
-  </>
-)
+import ProtectedRoute from "./Components/ProtectedRoute";
 
+function App() {
+  return (
+    <Routes>
+      {/* Public Route */}
+      <Route path="/" element={<Login />} />
+
+      {/* Protected Chat Route */}
+      <Route
+        path="/chat"
+        element={
+          <ProtectedRoute>
+            <Chat />
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
+  );
 }
 
 export default App;
