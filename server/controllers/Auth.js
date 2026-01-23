@@ -1,130 +1,127 @@
-const express = require("express")
-const mongoose = require("mongoose")
-const userModel = require("../models/userModel")
-const jwt = require("jsonwebtoken")
-const bcrypt = require("bcrypt")
+const express = require("express");
+const mongoose = require("mongoose");
+const userModel = require("../models/userModel");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
 
+// ---------------- REGISTER ----------------
+async function registerUser(req, res) {
+  try {
+    let { email, name, password } = req.body;
 
-//register Auth
-async function registerUser(req,res){
-let {email,name,password} = req.body
-
-if(!email||!name||!password){
-    return res.json({
-        messsage:"invalid fields",
-        success:false
-    })
-}
-
-let user = await userModel.findOne({email:email})
-
-if(user){
-
-  return res.json({
-        message:"user already exists",
-        success:false
-    })
-}
-
-if(!user){
-    let salt = await bcrypt.genSalt(10)
-    let hashedPassword =  await bcrypt.hash(password,salt)
-    
-   
-
-   let newUser = await userModel.create({
-        Name:name,
-        email:email,
-        password:hashedPassword
-    })
-
-     let payload = {
-        userId:newUser._id,
-        name:name,
-        email:email
+    if (!email || !name || !password) {
+      return res.status(400).json({
+        message: "Invalid fields",
+        success: false,
+      });
     }
 
-    let token = jwt.sign(payload,process.env.SECRET_KEY,{expiresIn:"7h"})
+    const existingUser = await userModel.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({
+        message: "User already exists",
+        success: false,
+      });
+    }
 
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
 
-    return res.json({
-        message:"user created successfully",
-        success:true,
-        token:token,
-        userId:newUser._id,
-        name:name
-    })
+    // Create user
+    const newUser = await userModel.create({
+      Name: name,
+      email,
+      password: hashedPassword,
+    });
 
+    // JWT payload
+    const payload = {
+      userId: newUser._id,
+      name: newUser.Name,
+      email: newUser.email,
+    };
+
+    const token = jwt.sign(payload, process.env.SECRET_KEY, {
+      expiresIn: "7h",
+    });
+
+    return res.status(201).json({
+      message: "User created successfully",
+      success: true,
+      token,
+      userId: newUser._id,
+      name: newUser.Name,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      message: "Server error",
+      success: false,
+    });
+  }
 }
 
-
-}
-
-//login Auth
+// ---------------- LOGIN ----------------
 async function loginUser(req, res) {
-    try {
-        let { email, password } = req.body;
+  try {
+    const { email, password } = req.body;
 
-        // Check required fields
-        if (!email || !password) {
-            return res.status(400).json({
-                message: "Invalid fields",
-                success: false
-            });
-        }
-
-        // Check if user exists
-        let user = await userModel.findOne({ email });
-        if (!user) {
-            return res.status(404).json({
-                message: "User not found, please register",
-                success: false
-            });
-        }
-
-        // Validate password
-        let isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) {
-            return res.status(401).json({
-                message: "Invalid credentials",
-                success: false
-            });
-        }
-
-        // Generate JWT token
-        let payload = {
-            userId: user._id,
-            email: user.email,
-            name:user.Name
-        };
-
-        let token = jwt.sign(payload, process.env.SECRET_KEY, { expiresIn: "4h" });
-
-        return res.status(200).json({
-            message: "Logged in successfully",
-            success: true,
-            token: token,
-            userId:user._id,
-            name:user.Name
-        });
-
-    } catch (error) {
-        console.error(error);
-        return res.status(500).json({
-            message: "Server error",
-            success: false
-        });
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Invalid fields",
+        success: false,
+      });
     }
+
+    // Find user explicitly selecting password
+    const user = await userModel.findOne({ email }).select("+password");
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found, please register",
+        success: false,
+      });
+    }
+
+    // Compare password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Invalid credentials",
+        success: false,
+      });
+    }
+
+    const payload = {
+      userId: user._id,
+      name: user.Name,
+      email: user.email,
+    };
+
+    const token = jwt.sign(payload, process.env.SECRET_KEY, {
+      expiresIn: "4h",
+    });
+
+    return res.status(200).json({
+      message: "Logged in successfully",
+      success: true,
+      token,
+      userId: user._id,
+      name: user.Name,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      message: "Server error",
+      success: false,
+    });
+  }
 }
 
-
-
-
-
-// --- GET CONTACTS ---
+// ---------------- GET CONTACTS ----------------
 async function getContacts(req, res) {
   try {
-    const currentUserId = req.userId; 
+    const currentUserId = req.userId;
 
     if (!currentUserId) {
       return res.status(401).json({
@@ -133,10 +130,9 @@ async function getContacts(req, res) {
       });
     }
 
-    // Fetch all users except the current user
     const users = await userModel.find(
       { _id: { $ne: currentUserId } },
-      "_id Name email" // only select these fields
+      "_id Name email"
     );
 
     return res.status(200).json({
@@ -153,5 +149,4 @@ async function getContacts(req, res) {
   }
 }
 
-module.exports = { loginUser, registerUser, getContacts };
-
+module.exports = { registerUser, loginUser, getContacts };

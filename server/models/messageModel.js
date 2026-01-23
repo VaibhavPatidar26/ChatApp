@@ -1,19 +1,21 @@
 const mongoose = require("mongoose")
+
 const messageModel = new mongoose.Schema(
   {
     from: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",   // sender
+      ref: "User",
       required: true,
     },
     to: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",   // receiver
+      ref: "User",
       required: true,
     },
     message: {
       type: String,
       required: true,
+      trim: true
     },
     type: {
       type: String,
@@ -24,24 +26,25 @@ const messageModel = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
-    deletedfor : [{
-      type:mongoose.Schema.Types.ObjectId,
-      ref:"ChatUser"
-    }]
+    deletedfor: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
+      }
+    ]
   },
-  { timestamps: {type:Date,
-    default:Date.now()
-  } }
-);
+  {
+    timestamps: true
+  }
+)
 
-// This ensures when you call .toJSON() or res.json(msg) 
-// it removes __v and formats _id properly
+// Clean JSON output
 messageModel.set("toJSON", {
   transform: function (doc, ret) {
-    ret.id = ret._id;
-    delete ret._id;
-    delete ret.__v;
+    ret.id = ret._id
+    delete ret._id
+    delete ret.__v
   },
-});
+})
 
-module.exports = mongoose.model("Message",messageModel)
+module.exports = mongoose.model("Message", messageModel)

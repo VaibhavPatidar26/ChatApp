@@ -1,65 +1,100 @@
 const WebSocket = require("ws");
 const jwt = require("jsonwebtoken");
-const url = require("url");
 const messageModel = require("./models/messageModel");
 
+function wssServer(server) {
 
-async function wssServer(server) {
-  let clients = []; // store connected users
+  // userId -> socket
+  const clients = new Map();
 
-  const wss = new WebSocket.Server({ server });   
+  const wss = new WebSocket.Server({ server });
 
-  wss.on("connection", (socket, req) => {
-    console.log("some connection  found")
-    let userId = null
-    try {
-      socket.on("message",async (message)=>{
-        let data = JSON.parse(message)
+  wss.on("connection", (socket) => {
+    console.log("🔌 New WebSocket connection");
 
-        if(data.type==="auth"){
-          let token = data.token
-          let decoded = jwt.verify(token,process.env.SECRET_KEY)
-          userId = decoded.userId
-          let name = decoded.name
-          clients.push({userId,socket})
-          console.log(`user authenticated with name ${name} and id ${userId}`)
-          
-        }
-        if(data.type==="SendMessage"){
-          let message = data.text
-          let receiverId = data.to
-          await messageModel.create({
-            from:userId, to:receiverId, type:"text", message:message, isRead:false,
-          })
-          let reciever = clients.find((c)=>(c.userId===receiverId))
-          if(reciever){
-            reciever.socket.send(JSON.stringify({
-              message:data.text,
-              from:userId,
-              type:"recievedMessage"
-            }))
-            return
+    let userId = null;
+
+    socket.on("message", async (rawMessage) => {
+      let data;
+
+      // -------- Safe JSON parsing --------
+      try {
+        data = JSON.parse(rawMessage);
+      } catch (err) {
+        socket.send(JSON.stringify({ error: "Invalid JSON" }));
+        return;
+      }
+
+      // -------- AUTH --------
+      if (data.type === "auth") {
+        try {
+          const decoded = jwt.verify(data.token, process.env.SECRET_KEY);
+          userId = decoded.userId;
+
+          // Remove old connection if exists
+          if (clients.has(userId)) {
+            clients.get(userId).close();
           }
 
+          clients.set(userId, socket);
+
+          console.log(`✅ User authenticated: ${userId}`);
+
+          socket.send(JSON.stringify({
+            type: "authSuccess",
+            userId
+          }));
+        } catch (err) {
+          socket.send(JSON.stringify({ error: "Unauthorized" }));
+          socket.close();
         }
-        
-      })
-     
+        return;
+      }
 
-     
-       
+      // -------- BLOCK unauthenticated users --------
+      if (!userId) {
+        socket.send(JSON.stringify({ error: "Not authenticated" }));
+        return;
+      }
 
-      // Handle client disconnect
-      socket.on("close", () => {
-        console.log(`❌ User ${userId} disconnected`);
-        clients = clients.filter((c) => c.userId !== userId);
-      });
+      // -------- SEND MESSAGE --------
+      if (data.type === "SendMessage") {
+        const { text, to } = data;
 
-    } catch (err) {
-      console.error("❌ Auth failed:", err.message);
-      socket.send(JSON.stringify({ error: "Unauthorized" }));
-      socket.close();
-    }
+        if (!text || !to) {
+          socket.send(JSON.stringify({ error: "Invalid message data" }));
+          return;
+        }
+
+        // Save message
+        const msg = await messageModel.create({
+          from: userId,
+          to,
+          type: "text",
+          message: text,
+          isRead: false
+        });
+
+        // Send to receiver if online
+        const receiverSocket = clients.get(to);
+        if (receiverSocket) {
+          receiverSocket.send(JSON.stringify({
+            type: "receivedMessage",
+            message: text,
+            from: userId,
+            messageId: msg._id
+          }));
+        }
+      }
+    });
+
+    // -------- DISCONNECT --------
+    socket.on("close", () => {
+      if (userId && clients.get(userId) === socket) {
+        clients.delete(userId);
+      }
+      console.log(`❌ User disconnected: ${userId}`);
+    });
   });
 }
 
