@@ -10,7 +10,7 @@ const messageRouter = require("./Routes/messageRouter")
 
 const PORT = process.env.SERVER_PORT || 3000
 const FRONTEND_URI = process.env.FRONTEND_URL
-
+const path = require("path")
 const app = express()
 
 dbConnect()
@@ -20,6 +20,9 @@ app.use(cors({
     origin: FRONTEND_URI,
     credentials: true
 }))
+
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")))
 
 // Routes
 

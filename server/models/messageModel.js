@@ -12,20 +12,30 @@ const messageModel = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+
     message: {
       type: String,
-      required: true,
-      trim: true
+      trim: true,
+      default: ""   
     },
+
     type: {
       type: String,
       enum: ["text", "image", "video", "file"],
       default: "text",
     },
+
+    attachment: {
+      filename: String,
+      mimetype: String,
+      size: Number
+    },
+
     isRead: {
       type: Boolean,
       default: false,
     },
+
     deletedfor: [
       {
         type: mongoose.Schema.Types.ObjectId,

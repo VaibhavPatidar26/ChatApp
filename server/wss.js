@@ -1,12 +1,8 @@
 const WebSocket = require("ws");
 const jwt = require("jsonwebtoken");
-const messageModel = require("./models/messageModel");
 
 function wssServer(server) {
-
-  // userId -> socket
   const clients = new Map();
-
   const wss = new WebSocket.Server({ server });
 
   wss.on("connection", (socket) => {
@@ -14,86 +10,80 @@ function wssServer(server) {
 
     let userId = null;
 
+    // ---------- Handle incoming messages ----------
     socket.on("message", async (rawMessage) => {
       let data;
-
-      // -------- Safe JSON parsing --------
       try {
         data = JSON.parse(rawMessage);
       } catch (err) {
-        socket.send(JSON.stringify({ error: "Invalid JSON" }));
-        return;
+        console.error("Invalid JSON:", err);
+        return socket.send(JSON.stringify({ error: "Invalid JSON" }));
       }
 
-      // -------- AUTH --------
-      if (data.type === "auth") {
-        try {
+      try {
+        // ---------- AUTH ----------
+        if (data.type === "auth") {
           const decoded = jwt.verify(data.token, process.env.SECRET_KEY);
           userId = decoded.userId;
 
-          // Remove old connection if exists
+          // Kick old session
           if (clients.has(userId)) {
-            clients.get(userId).close();
+            try { clients.get(userId).close(); } catch {}
           }
 
           clients.set(userId, socket);
-
+          socket.send(JSON.stringify({ type: "authSuccess", userId }));
           console.log(`✅ User authenticated: ${userId}`);
-
-          socket.send(JSON.stringify({
-            type: "authSuccess",
-            userId
-          }));
-        } catch (err) {
-          socket.send(JSON.stringify({ error: "Unauthorized" }));
-          socket.close();
-        }
-        return;
-      }
-
-      // -------- BLOCK unauthenticated users --------
-      if (!userId) {
-        socket.send(JSON.stringify({ error: "Not authenticated" }));
-        return;
-      }
-
-      // -------- SEND MESSAGE --------
-      if (data.type === "SendMessage") {
-        const { text, to } = data;
-
-        if (!text || !to) {
-          socket.send(JSON.stringify({ error: "Invalid message data" }));
           return;
         }
 
-        // Save message
-        const msg = await messageModel.create({
-          from: userId,
-          to,
-          type: "text",
-          message: text,
-          isRead: false
-        });
+        // ---------- BLOCK UNAUTH ----------
+        if (!userId) return socket.send(JSON.stringify({ error: "Not authenticated" }));
 
-        // Send to receiver if online
-        const receiverSocket = clients.get(to);
-        if (receiverSocket) {
-          receiverSocket.send(JSON.stringify({
-            type: "receivedMessage",
-            message: text,
-            from: userId,
-            messageId: msg._id
-          }));
+        // ---------- NEW MESSAGE ----------
+        if (data.type === "new-message") {
+          const { message } = data;
+          if (!message || !message.receiver) {
+            return socket.send(JSON.stringify({ error: "Invalid message payload" }));
+          }
+
+          const receiverSocket = clients.get(message.receiver);
+          if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+            try {
+              receiverSocket.send(JSON.stringify({ type: "received-message", message }));
+            } catch (err) {
+              console.error("Failed to send message to receiver:", err);
+            }
+          }
         }
+
+        // ---------- READ RECEIPT ----------
+        if (data.type === "message-read") {
+          const receiverSocket = clients.get(data.to);
+          if (receiverSocket && receiverSocket.readyState === WebSocket.OPEN) {
+            try {
+              receiverSocket.send(JSON.stringify(data));
+            } catch (err) {
+              console.error("Failed to send read receipt:", err);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("WebSocket message handler error:", err);
       }
     });
 
-    // -------- DISCONNECT --------
+    // ---------- Handle socket close ----------
     socket.on("close", () => {
       if (userId && clients.get(userId) === socket) {
         clients.delete(userId);
       }
       console.log(`❌ User disconnected: ${userId}`);
+    });
+
+    // ---------- Handle socket errors ----------
+    socket.on("error", (err) => {
+      console.error("WebSocket socket error:", err);
     });
   });
 }
