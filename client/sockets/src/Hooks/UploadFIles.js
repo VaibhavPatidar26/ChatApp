@@ -1,8 +1,6 @@
 import axios from "axios";
 
-
-export const uploadFile = (backendurl, token) => {
-
+export const uploadFile = (backendurl, token, receiverId) => {
   const upload_file = async (file) => {
     if (!file) {
       alert("No file selected");
@@ -11,10 +9,12 @@ export const uploadFile = (backendurl, token) => {
 
     try {
       const formdata = new FormData();
-      formdata.append("my_file", file);
+      formdata.append("file", file);
+      formdata.append("receiverId", receiverId); // ✅ ADDED: Backend needs this
 
+      // ✅ CHANGED: Route from /send to /send-file
       const { data } = await axios.post(
-        backendurl + "api/fileupload",
+        `${backendurl}/api/messages/send-file`,
         formdata,
         {
           headers: {
@@ -24,15 +24,21 @@ export const uploadFile = (backendurl, token) => {
         }
       );
 
-      if (!data.url) {
+      if (!data.success) {
         alert("File not uploaded");
         return null;
       }
 
-      return data.url;
+      // ✅ CHANGED: Return the full data object, not just URL
+      return {
+        fileUrl: data.data.fileUrl,
+        fileType: data.data.fileType,
+        id: data.data.id,
+        createdAt: data.data.createdAt,
+      };
     } catch (err) {
       console.error("Upload failed:", err);
-      alert("File upload failed");
+      alert(err.response?.data?.message || "File upload failed");
       return null;
     }
   };
