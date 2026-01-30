@@ -1,13 +1,19 @@
-const express = require("express")
-const isLoggedIn = require("../middlewares/isLoggedIn")
-const getUserMessages = require("../controllers/userMessage")
-const deleteMessages = require("../controllers/deleteMessages")
-const upload = require("../config/multer")
+const express = require("express");
+const isLoggedIn = require("../middlewares/isLoggedIn");
+const getUserMessages = require("../controllers/userMessage");
+const deleteMessages = require("../controllers/deleteMessages");
+const upload = require("../config/multer");
+const sendFile = require("../controllers/sendMessage");
 
-const messageRouter = express.Router()
+const messageRouter = express.Router();
 
+// ✅ Get chat messages
+messageRouter.get("/userchats/:receiverId", isLoggedIn, getUserMessages);
 
-messageRouter.get("/userchats/:receiverId",isLoggedIn,getUserMessages)
-messageRouter.patch("/deletechats/:messageId",isLoggedIn,deleteMessages)
-messageRouter.post("/send",isLoggedIn,upload.single("file"),)
-module.exports = messageRouter
+// ✅ Delete messages
+messageRouter.patch("/deletechats/:messageId", isLoggedIn, deleteMessages);
+
+// ✅ Upload file and send message (HTTP upload → URL)
+messageRouter.post("/send-file", isLoggedIn, upload.single("file"), sendFile);
+
+module.exports = messageRouter;
