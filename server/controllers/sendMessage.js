@@ -27,19 +27,29 @@ async function sendFile(req, res) {
       resource_type: "auto", // Handles images, videos, raw files
     });
 
+    const recievedUrl = uploadResult.secure_url;
+
     // ✅ Determine file type based on mimetype
     let fileType = "file";
     if (file.mimetype.startsWith("image/")) {
       fileType = "image";
     } else if (file.mimetype.startsWith("video/")) {
       fileType = "video";
+    } else if (
+      file.mimetype === "application/pdf" ||
+      file.mimetype.includes("document") ||
+      file.mimetype.includes("word") ||
+      file.mimetype.includes("excel") ||
+      file.mimetype.includes("powerpoint")
+    ) {
+      fileType = "file";
     }
 
     // ✅ Save message to database with file URL
     const newMessage = new Message({
       from: userId,
       to: receiverId,
-      message: uploadResult.secure_url, // Store the Cloudinary URL
+      message: recievedUrl, // Store the Cloudinary URL
       type: fileType,
       attachment: {
         filename: file.originalname,
