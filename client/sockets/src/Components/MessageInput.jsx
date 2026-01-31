@@ -101,7 +101,7 @@ const MessageInput = ({ socketRef }) => {
         ref={fileInputRef}
         className="hidden"
         onChange={handleFileChange}
-        accept="image/*,video/*,.pdf,.doc,.docx"
+        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
       />
 
       {/* File upload button */}

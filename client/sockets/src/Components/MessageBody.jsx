@@ -3,7 +3,8 @@ import { MoreVertical, Trash } from "lucide-react";
 import { AppContext } from "../Context/AppContext";
 import { deleteMessage, getUserChats } from "../api/messages";
 import MessageInput from "./MessageInput";
-
+import { fetchFileForPreview } from "../Hooks/fetchFile";
+import MessageItem from "./MessageItem";  
 const MessageBody = () => {
   const {
     receiverName,
@@ -14,7 +15,7 @@ const MessageBody = () => {
     backendUrl,
     token,
   } = useContext(AppContext);
-
+  const [fileUrl,setFileUrl] = useState(null);
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
 
@@ -74,7 +75,7 @@ const MessageBody = () => {
         const data = JSON.parse(event.data);
 
         if (data.type === "received-message") {
-          const msg = data.message;
+          const msg = data.message; 
 
           // ✅ Only add message if it belongs to THIS conversation
           const belongsToThisChat =
@@ -194,73 +195,15 @@ const MessageBody = () => {
           const isMine = msg.from === String(userId);
 
           return (
-            <div
-              key={msg.id || i}
-              className={`flex ${isMine ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-xs px-4 py-2 rounded-2xl text-sm shadow ${
-                  isMine
-                    ? "bg-blue-500 text-white rounded-br-none"
-                    : "bg-gray-200 text-gray-800 rounded-bl-none"
-                }`}
-              >
-                {/* ✅ UPDATED: Better file type handling */}
-                {msg.fileType === "image" ? (
-                  <img
-                    src={msg.message}
-                    alt={msg.attachment?.filename || "Image"}
-                    className="rounded-lg max-w-[250px] cursor-pointer hover:opacity-90"
-                    onClick={() => window.open(msg.message, "_blank")}
-                  />
-                ) : msg.fileType === "video" ? (
-                  <video
-                    controls
-                    src={msg.message}
-                    className="rounded-lg max-w-[250px]"
-                  />
-                ) : msg.fileType === "file" || msg.fileType === "document" ? (
-                  <div className="flex flex-col gap-2">
-                    <a
-                      href={msg.message}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`flex items-center gap-2 ${
-                        isMine
-                          ? "text-white hover:underline"
-                          : "text-blue-600 hover:underline"
-                      }`}
-                    >
-                      📄 {msg.attachment?.filename || "Download File"}
-                    </a>
-                    {msg.attachment?.size && (
-                      <span
-                        className={`text-xs ${
-                          isMine ? "text-blue-100" : "text-gray-500"
-                        }`}
-                      >
-                        {formatFileSize(msg.attachment.size)}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <p className="whitespace-pre-wrap break-words">
-                    {msg.message}
-                  </p>
-                )}
-
-                {/* Delete button for own messages */}
-                {isMine && (
-                  <div className="flex justify-end mt-1">
-                    <Trash
-                      onClick={() => handleDeleteMessage(msg.id)}
-                      className="w-3 h-3 text-red-400 cursor-pointer hover:text-red-600"
-                      title="Delete message"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
+              
+             <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
+      <MessageItem
+        msg={msg}
+        isMine={isMine}
+        handleDeleteMessage={handleDeleteMessage}
+        formatFileSize={formatFileSize}
+      />
+    </div>
           );
         })}
         <div ref={messagesEndRef} />
