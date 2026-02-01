@@ -1,105 +1,212 @@
-import React, { useState, useEffect } from "react";
-import { Trash } from "lucide-react";
-import { fetchFileForPreview } from "../Hooks/fetchFile";
+import { Trash, X } from "lucide-react";
+import { useState } from "react";
+import {
+  downloadFromCloudinary,
+  openPdfInGoogleViewer,
+} from "../Hooks/downloadCloud";
 
-export default function MessageItem({ msg, isMine, handleDeleteMessage, formatFileSize }) {
-  const [fileUrl, setFileUrl] = useState(null); // blob for preview & download
-  const [previewOpen, setPreviewOpen] = useState(false);
+export default function MessageItem({
+  msg,
+  isMine,
+  handleDeleteMessage,
+  formatFileSize,
+}) {
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
 
   const isImage = msg.fileType === "image";
+  const isText = msg.fileType === "text";
+  const isVideo = msg.fileType ==="video";
 
-  // Fetch blob only for video/document files
-  useEffect(() => {
-    let isMounted = true;
-    if (!isImage && msg.fileType !== "text") {
-      fetchFileForPreview(msg).then((url) => {
-        if (isMounted) setFileUrl(url);
-      }).catch(err => console.error("Fetch preview failed", err));
-    }
-    return () => { isMounted = false; };
-  }, [msg]);
+  const isPdfOrDoc =
+    msg.attachment?.mimetype?.includes("pdf") ||
+    msg.attachment?.mimetype?.includes("word") ||
+    msg.attachment?.mimetype?.includes("excel") ||
+    msg.attachment?.mimetype?.includes("powerpoint");
 
   return (
-    <div className={`max-w-xs px-4 py-2 rounded-2xl text-sm shadow ${isMine ? "bg-blue-500 text-white rounded-br-none" : "bg-gray-200 text-gray-800 rounded-bl-none"}`}>
-      
-      {/* Inline Image */}
-      {isImage && (
-        <img
-          src={msg.message}
-          alt={msg.attachment?.filename || "Image"}
-          className="rounded-lg max-w-[250px]"
-        />
-      )}
+    <>
 
-      {/* Video / Document placeholder */}
-      {!isImage && msg.fileType !== "text" && (
-        <div className="flex flex-col gap-1">
-          <span className="font-medium">{msg.attachment?.filename}</span>
-          {msg.attachment?.size && <span className="text-xs">{formatFileSize(msg.attachment.size)}</span>}
-        </div>
-      )}
 
-      {/* Text */}
-      {msg.fileType === "text" && <p className="whitespace-pre-wrap break-words">{msg.message}</p>}
+{showVideoModal ? (
+  <div
+    className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50"
+    onClick={() => setShowVideoModal(false)}
+  >
+    <div
+      className="relative bg-black rounded-lg w-[80vw] h-[80vh]"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <video
+        src={msg.message}
+        controls
+        autoPlay
+        className="w-full h-full rounded-lg"
+      />
 
-      {/* OPEN / DOWNLOAD buttons */}
-      {msg.fileType !== "text" && (
-        <div className="flex gap-2 mt-1">
-          <button
-            onClick={() => setPreviewOpen(true)}
-            className="px-2 py-1 bg-blue-500 text-white rounded text-xs"
+      <X
+        className="absolute top-2 right-2 text-white cursor-pointer"
+        onClick={() => setShowVideoModal(false)}
+      />
+    </div>
+  </div>
+) : null}
+
+{/*pdf modal*/}
+
+{showPdfModal ? (
+  <div
+    className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50"
+    onClick={() => setShowPdfModal(false)}
+  >
+    <div
+      className="relative bg-white rounded-lg w-[90vw] h-[95vh]"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <iframe
+        src={msg.message}
+        className="w-full h-full rounded-lg"
+        title={msg.attachment?.filename}
+      />
+
+      <X
+        className="absolute top-2 right-2 cursor-pointer text-black"
+        onClick={() => setShowPdfModal(false)}
+      />
+    </div>
+  </div>
+) : null}
+
+      {/* IMAGE MODAL */}
+      {showImageModal && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50"
+          onClick={() => setShowImageModal(false)}
+        >
+          <div
+            className="relative max-w-[90%] max-h-[90%]"
+            onClick={(e) => e.stopPropagation()}
           >
-            Open
-          </button>
-          <button
-            onClick={async () => {
-              try {
-                const url = isImage ? msg.message : await fetchFileForPreview(msg);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = msg.attachment?.filename || "file";
-                a.click();
-              } catch (err) {
-                console.error("Download failed", err);
-              }
-            }}
-            className="px-2 py-1 bg-green-500 text-white rounded text-xs"
-          >
-            Download
-          </button>
-        </div>
-      )}
+            <img
+              src={msg.message}
+              alt="preview"
+              className="max-h-[90vh] rounded-lg"
+            />
 
-      {/* Preview modal */}
-      {previewOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
-          <div className="relative bg-white p-4 rounded max-w-[90vw] max-h-[90vh] overflow-auto">
-            <button
-              onClick={() => setPreviewOpen(false)}
-              className="absolute top-2 right-2 text-red-500 font-bold"
-            >
-              Close
-            </button>
-
-            {isImage && <img src={msg.message} className="max-h-[80vh]" />}
-            {msg.fileType === "video" && fileUrl && <video src={fileUrl} controls className="max-h-[80vh]" />}
-            {["file","document"].includes(msg.fileType) && fileUrl && (
-              <iframe src={fileUrl} className="w-[80vw] h-[80vh]" title={msg.attachment?.filename}></iframe>
-            )}
+            <X
+              className="absolute top-2 right-2 text-white cursor-pointer"
+              onClick={() => setShowImageModal(false)}
+            />
           </div>
         </div>
       )}
 
-      {/* Delete button */}
-      {isMine && (
+      {/* MESSAGE BUBBLE */}
+      <div
+        className={`max-w-xs px-4 py-2 rounded-2xl text-sm shadow ${isMine
+            ? "bg-blue-500 text-white rounded-br-none"
+            : "bg-gray-200 text-gray-800 rounded-bl-none"
+          }`}
+      >
+        {/* IMAGE */}
+        {isImage && (
+          <img
+            src={msg.message}
+            alt="img"
+            className="rounded-lg max-w-[250px] cursor-pointer"
+            onClick={() => setShowImageModal(true)}
+          />
+        )}
+        {/*VIDEO FILE*/}
+       {isVideo ? (
+  <div className="flex flex-col gap-1">
+    {/* <span className="font-medium">{msg.attachment?.filename}</span> */}
+
+    {msg.attachment?.size ? (
+      <span className="text-xs">
+        {formatFileSize(msg.attachment.size)}
+      </span>
+    ) : null}
+  </div>
+) : null}
+        {/* FILE / PDF / DOC */}
+        {!isImage && !isText && (
+          <div className="flex flex-col gap-1">
+            <span className="font-medium">
+              {msg.attachment?.filename}
+            </span>
+            {msg.attachment?.size && (
+              <span className="text-xs">
+                {formatFileSize(msg.attachment.size)}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* TEXT */}
+        {isText && (
+          <p className="whitespace-pre-wrap">{msg.message}</p>
+        )}
+
+        {/* ACTIONS */}
+        {!isText && (
+          <div className="flex gap-2 mt-2">
+
+
+
+
+            {/* OPEN */}
+            <button
+              onClick={() => {
+                if (isImage) {
+                  setShowImageModal(true);
+                  return;
+                }
+
+                if (isPdfOrDoc) {
+                  {console.log("clicked for pdf")}
+                  setShowPdfModal(true);
+                  return;
+                  // openPdfInGoogleViewer(msg.message);
+                }
+
+                if(isVideo){
+                  setShowVideoModal(true);
+                  return;
+                }
+              }}
+              className="px-2 py-1 bg-blue-600 text-white rounded text-xs"
+            >
+              Open
+            </button>
+
+            {/* DOWNLOAD */}
+            <button
+              onClick={() =>
+                downloadFromCloudinary(
+                  msg.message,
+                  msg.attachment?.filename
+                )
+              }
+              className="px-2 py-1 bg-green-600 text-white rounded text-xs"
+            >
+              Download
+            </button>
+          </div>
+        )}
+
+        {/* DELETE - Now shows for ALL messages (removed isMine condition) */}
         <div className="flex justify-end mt-1">
           <Trash
-            onClick={() => handleDeleteMessage(msg.id)}
-            className="w-3 h-3 text-red-400 cursor-pointer hover:text-red-600"
-            title="Delete message"
+            onClick={() => {
+              console.log("🗑️ Delete clicked for message:", msg.id);
+              handleDeleteMessage(msg.id);
+            }}
+            className={`w-3 h-3 cursor-pointer ${isMine ? "text-red-400" : "text-red-600"}`}
           />
         </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }

@@ -18,6 +18,7 @@ const MessageBody = () => {
   const [fileUrl,setFileUrl] = useState(null);
   const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const prevConversationLengthRef = useRef(0);
 
   // ------------------ Fetch Chat History ------------------
   useEffect(() => {
@@ -40,6 +41,8 @@ const MessageBody = () => {
         }));
 
         setConversation(chatHistory);
+        // Update ref after setting initial conversation
+        prevConversationLengthRef.current = chatHistory.length;
       } catch (err) {
         console.error("Failed to fetch messages:", err);
       }
@@ -85,7 +88,7 @@ const MessageBody = () => {
               String(msg.receiver) === String(userId));
 
           if (!belongsToThisChat) {
-            console.log("⏭️ Message not for this chat, ignoring");
+            console.log("⭐️ Message not for this chat, ignoring");
             return;
           }
 
@@ -93,7 +96,7 @@ const MessageBody = () => {
           setConversation((prev) => {
             const exists = prev.some((m) => m.id === msg.id);
             if (exists) {
-              console.log("⏭️ Duplicate message, ignoring");
+              console.log("⭐️ Duplicate message, ignoring");
               return prev;
             }
 
@@ -140,21 +143,49 @@ const MessageBody = () => {
     };
   }, [receiverId, userId, backendUrl, token, setConversation]);
 
-  // ------------------ Auto-scroll ------------------
+  // ------------------ Smart Auto-scroll ------------------
+  // Only scroll when NEW messages are added, not when messages are deleted
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const currentLength = conversation.length;
+    const previousLength = prevConversationLengthRef.current;
+
+    // Only scroll if conversation got LONGER (new message added)
+    // Don't scroll if it got SHORTER (message deleted) or stayed same
+    if (currentLength > previousLength) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    // Update the ref for next comparison
+    prevConversationLengthRef.current = currentLength;
   }, [conversation]);
 
   // ------------------ Delete Message ------------------
   const handleDeleteMessage = async (id) => {
+    console.log("🗑️ Attempting to delete message with id:", id);
+    
     try {
-      const res = await deleteMessage(token, backendUrl, id);
+      // deleteMessage returns res.data directly, so response is at top level
+      const response = await deleteMessage(id);
+      
+      console.log("📡 Delete API response:", response);
 
-      if (res?.data?.success) {
-        setConversation((prev) => prev.filter((msg) => msg.id !== id));
+      // Check if success flag is true
+      if (response?.success) {
+        console.log("✅ Delete successful, removing from UI");
+        
+        // Remove message from UI immediately
+        setConversation((prev) => {
+          const filtered = prev.filter((msg) => msg.id !== id);
+          console.log("📊 Before filter:", prev.length, "After filter:", filtered.length);
+          return filtered;
+        });
+      } else {
+        console.error("❌ Delete failed - API returned:", response);
+        alert("Failed to delete message: " + (response?.message || "Unknown error"));
       }
     } catch (err) {
-      console.error("Failed to delete message:", err);
+      console.error("❌ Failed to delete message - Error:", err);
+      alert("Failed to delete message. Please try again.");
     }
   };
 
