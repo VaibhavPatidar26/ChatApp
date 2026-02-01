@@ -1,55 +1,67 @@
 const Message = require("../models/messageModel");
-const cloudinary = require("../config/cloudinary"); // You'll need to configure this
+const cloudinary = require("../config/cloudinary");
 
 async function sendFile(req, res) {
   try {
     const file = req.file;
     const userId = req.userId;
-    const { receiverId } = req.body; // ✅ Get receiver from request body
+    const { receiverId } = req.body;
 
     if (!file) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "File missing" 
+      return res.status(400).json({
+        success: false,
+        message: "File missing",
       });
     }
 
     if (!receiverId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: "Receiver ID missing" 
+      return res.status(400).json({
+        success: false,
+        message: "Receiver ID missing",
       });
     }
 
-    // ✅ Upload to Cloudinary/S3
+    /* ----------------------------------
+       🔥 Decide resource_type PROPERLY
+    -----------------------------------*/
+    let resourceType = "raw"; // default for pdf, doc, etc
+
+    if (file.mimetype.startsWith("image/")) {
+      resourceType = "image";
+    } else if (file.mimetype.startsWith("video/")) {
+      resourceType = "video";
+    }
+
+    /* ----------------------------------
+       ✅ Upload to Cloudinary
+    -----------------------------------*/
     const uploadResult = await cloudinary.uploader.upload(file.path, {
       folder: "chat-files",
-      resource_type: "auto", // Handles images, videos, raw files
+      resource_type: resourceType,
+      use_filename: true,
+      unique_filename: false,
+      type: "upload",
     });
 
     const recievedUrl = uploadResult.secure_url;
 
-    // ✅ Determine file type based on mimetype
+    /* ----------------------------------
+       ✅ Determine fileType for frontend
+    -----------------------------------*/
     let fileType = "file";
     if (file.mimetype.startsWith("image/")) {
       fileType = "image";
     } else if (file.mimetype.startsWith("video/")) {
       fileType = "video";
-    } else if (
-      file.mimetype === "application/pdf" ||
-      file.mimetype.includes("document") ||
-      file.mimetype.includes("word") ||
-      file.mimetype.includes("excel") ||
-      file.mimetype.includes("powerpoint")
-    ) {
-      fileType = "file";
     }
 
-    // ✅ Save message to database with file URL
+    /* ----------------------------------
+       ✅ Save message
+    -----------------------------------*/
     const newMessage = new Message({
       from: userId,
       to: receiverId,
-      message: recievedUrl, // Store the Cloudinary URL
+      message: recievedUrl,
       type: fileType,
       attachment: {
         filename: file.originalname,
@@ -61,14 +73,16 @@ async function sendFile(req, res) {
 
     const savedMessage = await newMessage.save();
 
-    // ✅ Send WebSocket notification (if receiver is online)
+    /* ----------------------------------
+       ✅ WebSocket notify
+    -----------------------------------*/
     const { getClient } = require("../wsStore");
     const WebSocket = require("ws");
-    
+
     const receiverSocket = getClient(receiverId);
     const senderSocket = getClient(userId);
 
-    const messagePayload = {
+    const payload = {
       type: "received-message",
       message: {
         id: savedMessage._id,
@@ -82,28 +96,27 @@ async function sendFile(req, res) {
       },
     };
 
-    // Notify receiver
     if (receiverSocket?.readyState === WebSocket.OPEN) {
-      receiverSocket.send(JSON.stringify(messagePayload));
+      receiverSocket.send(JSON.stringify(payload));
     }
 
-    // Notify sender (for multi-device sync)
     if (senderSocket?.readyState === WebSocket.OPEN) {
-      senderSocket.send(JSON.stringify(messagePayload));
+      senderSocket.send(JSON.stringify(payload));
     }
 
-    // ✅ Return success with file URL
+    /* ----------------------------------
+       ✅ Response
+    -----------------------------------*/
     res.json({
       success: true,
       message: "File uploaded successfully",
       data: {
         id: savedMessage._id,
-        fileUrl: uploadResult.secure_url,
+        fileUrl: recievedUrl,
         fileType,
         createdAt: savedMessage.createdAt,
       },
     });
-
   } catch (error) {
     console.error("File upload error:", error);
     res.status(500).json({
