@@ -5,7 +5,7 @@ import { deleteMessage, getUserChats } from "../api/messages";
 import MessageInput from "./MessageInput";
 import { fetchFileForPreview } from "../Hooks/fetchFile";
 import MessageItem from "./MessageItem";  
-const MessageBody = () => {
+const MessageBody = ({contacts}) => {
   const {
     receiverName,
     receiverId,
@@ -229,6 +229,7 @@ const MessageBody = () => {
               
              <div key={msg.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
       <MessageItem
+        contacts={contacts}
         msg={msg}
         isMine={isMine}
         handleDeleteMessage={handleDeleteMessage}

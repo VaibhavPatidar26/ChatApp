@@ -1,8 +1,10 @@
 import { Trash, X } from "lucide-react";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import { downloadFromCloudinary } from "../Hooks/downloadCloud";
+import { AppContext } from "../Context/AppContext";
 
 export default function MessageItem({
+  contacts,
   msg,
   isMine,
   handleDeleteMessage,
@@ -12,6 +14,7 @@ export default function MessageItem({
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [isHover, setIsHover] = useState(false);
+  
 
   const isImage = msg.fileType === "image";
   const isText = msg.fileType === "text";
@@ -102,7 +105,9 @@ export default function MessageItem({
             className={`flex flex-col items-center gap-2 text-xs opacity-70
               ${isMine ? "order-1" : "order-2"}`}
           >
-            <span className="cursor-pointer text-sm hover:opacity-100">
+            <span onClick={()=>{
+              console.log(contacts)
+            }} className="cursor-pointer text-sm hover:opacity-100">
               ⋮
             </span>
 

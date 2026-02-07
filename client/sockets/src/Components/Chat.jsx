@@ -38,7 +38,7 @@ const Chat = () => {
 
       {/* Message Body (right) */}
       <div className="flex-1">
-        <MessageBody />
+        <MessageBody contacts={contacts}/>
       </div>
     </div>
   );
