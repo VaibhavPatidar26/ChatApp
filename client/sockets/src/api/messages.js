@@ -21,3 +21,17 @@ export async function deleteMessage(messageId) {
     throw err.response?.data || { message: "Server error", success: false };
   }
 }
+
+
+  async function sendToOther(messageId,receiverId){
+try{
+  let data = await axios.post(backendUrl+`/SendToOther/${messageId}`,{receiverId:receiverId},{headers:`Bearer ${token}`})
+
+    console.log(data.data);
+}
+   catch(err){
+    console.log(err);
+   }
+
+
+  }

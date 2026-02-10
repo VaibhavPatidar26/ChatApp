@@ -3,6 +3,7 @@ import { useContext, useState, useRef, useEffect } from "react";
 import { downloadFromCloudinary } from "../Hooks/downloadCloud";
 import { AppContext } from "../Context/AppContext";
 import ContactSelectModal from "./ContactsRender";
+import axios from "axios";
 
 export default function MessageItem({
   contacts,
@@ -11,12 +12,13 @@ export default function MessageItem({
   handleDeleteMessage,
   formatFileSize,
 }) {
+  const {backendUrl, token} = useContext(AppContext);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showVideoModal, setShowVideoModal] = useState(false);
   const [isHover, setIsHover] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
-  const [showcontactModal,setShowContactModal] = useState(false);
+  const [showcontactModal, setShowContactModal] = useState(false);
   const menuRef = useRef(null);
 
   const isImage = msg.fileType === "image";
@@ -40,17 +42,37 @@ export default function MessageItem({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleForward = () => {
-    console.log("Forward message", msg.id);
-    console.log("Available contacts:", contacts);
-    setShowMenu(false);
-    // Implement your forward logic here
-  };
+  async function sendToOther(messageId, receiverId) {
+    try {
+      console.log("📤 Forwarding message:");
+      console.log("Message ID:", messageId);
+      console.log("Receiver ID:", receiverId);
+      console.log("Full URL:", `${backendUrl}/SendToOther/${messageId}`);
+
+      const response = await axios.post(
+        `${backendUrl}/api/messages/SendToOther/${messageId}`,
+        { receiverId: receiverId },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      
+      console.log("✅ Success:", response.data);
+      alert("Message forwarded successfully!");
+      
+    } catch (err) {
+      console.error("❌ Error:", err);
+      console.error("Response:", err.response?.data);
+      alert(`Failed: ${err.response?.data?.message || err.message}`);
+    }
+  }
 
   const handleReply = () => {
     console.log("Reply to message", msg.id);
     setShowMenu(false);
-    // Implement your reply logic here
   };
 
   const handleCopy = () => {
@@ -61,7 +83,7 @@ export default function MessageItem({
   };
 
   const handleDelete = () => {
-    handleDeleteMessage(msg.id);
+    handleDeleteMessage(msg.id || msg._id);
     setShowMenu(false);
   };
 
@@ -180,28 +202,16 @@ export default function MessageItem({
                 <Reply size={14} />
                 Reply
               </button>
-             <button
-  onClick={() => {
-    setShowContactModal(true);
-  }}
-  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
->
-  <Forward size={14} />
-  Forward
-</button>
-
-{showcontactModal ? (
-  <ContactSelectModal
-    isOpen={showcontactModal}
-    onClose={() => setShowContactModal(false)}
-    contacts={contacts}
-    onSelect={(contact) => {
-      // Handle contact selection here
-      console.log("Selected contact:", contact);
-      setShowContactModal(false);
-    }}
-  />
-) : null}
+              <button
+                onClick={() => {
+                  setShowContactModal(true);
+                  setShowMenu(false);
+                }}
+                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+              >
+                <Forward size={14} />
+                Forward
+              </button>
               <hr className="my-1" />
               <button
                 onClick={handleDelete}
@@ -292,6 +302,29 @@ export default function MessageItem({
           </div>
         </div>
       </div>
+
+      {/* ================= CONTACT SELECT MODAL ================= */}
+      {showcontactModal && (
+        <ContactSelectModal
+          isOpen={showcontactModal}
+          onClose={() => setShowContactModal(false)}
+          contacts={contacts}
+          onSelect={(contact) => {
+            console.log("📋 Selected contact:", contact);
+            
+            const messageId = msg.id || msg._id;
+            const contactId = contact.id || contact._id;
+            
+            if (!messageId || !contactId) {
+              alert("Invalid message or contact ID");
+              return;
+            }
+            
+            sendToOther(messageId, contactId);
+            setShowContactModal(false);
+          }}
+        />
+      )}
     </>
   );
 }
