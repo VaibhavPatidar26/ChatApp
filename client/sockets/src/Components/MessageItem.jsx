@@ -1,4 +1,4 @@
-import { Trash, X, MoreVertical, Forward, Reply, Copy } from "lucide-react";
+import { Copy, Download, ExternalLink, FileText, Forward, MoreVertical, Reply, Trash, X } from "lucide-react";
 import { useContext, useState, useRef, useEffect } from "react";
 import { downloadFromCloudinary } from "../Hooks/downloadCloud";
 import { AppContext } from "../Context/AppContext";
@@ -167,13 +167,14 @@ export default function MessageItem({
           onMouseLeave={() => setIsHover(false)}
         >
           {/* Menu Button - appears on hover */}
-          {isHover && (
+          {(isHover || showMenu) && (
             <div className="flex items-center h-full pt-1">
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="p-1.5 rounded-full hover:bg-gray-200 transition-colors"
+                title="Message actions"
+                className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700"
               >
-                <MoreVertical size={16} className="text-gray-600" />
+                <MoreVertical size={16} />
               </button>
             </div>
           )}
@@ -184,12 +185,12 @@ export default function MessageItem({
               ref={menuRef}
               className={`absolute top-0 ${
                 isMine ? "right-full mr-2" : "left-full ml-2"
-              } bg-white rounded-lg shadow-lg border border-gray-200 py-1 w-36 z-10`}
+              } z-10 w-40 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-xl shadow-slate-200/70`}
             >
               {isText && (
                 <button
                   onClick={handleCopy}
-                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
                 >
                   <Copy size={14} />
                   Copy
@@ -197,7 +198,7 @@ export default function MessageItem({
               )}
               <button
                 onClick={handleReply}
-                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
               >
                 <Reply size={14} />
                 Reply
@@ -207,15 +208,15 @@ export default function MessageItem({
                   setShowContactModal(true);
                   setShowMenu(false);
                 }}
-                className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 flex items-center gap-2"
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50"
               >
                 <Forward size={14} />
                 Forward
               </button>
-              <hr className="my-1" />
+              <hr className="my-1 border-slate-100" />
               <button
                 onClick={handleDelete}
-                className="w-full px-4 py-2 text-left text-sm hover:bg-red-50 text-red-600 flex items-center gap-2"
+                className="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-red-600 hover:bg-red-50"
               >
                 <Trash size={14} />
                 Delete
@@ -225,11 +226,11 @@ export default function MessageItem({
 
           {/* Message Content */}
           <div
-            className={`max-w-xs px-4 py-2 rounded-2xl text-sm shadow
+            className={`max-w-[min(28rem,72vw)] rounded-2xl px-4 py-2.5 text-sm shadow-sm
               ${
                 isMine
-                  ? "bg-blue-500 text-white rounded-br-none"
-                  : "bg-gray-200 text-gray-800 rounded-bl-none"
+                  ? "rounded-br-md bg-blue-600 text-white"
+                  : "rounded-bl-md border border-slate-200 bg-white text-slate-800"
               }`}
           >
             {/* ===== IMAGE ===== */}
@@ -237,48 +238,72 @@ export default function MessageItem({
               <img
                 src={msg.message}
                 alt="img"
-                className="rounded-lg max-w-[250px] cursor-pointer"
+                className="max-h-80 max-w-full cursor-pointer rounded-xl object-cover"
                 onClick={() => setShowImageModal(true)}
               />
             )}
 
             {/* ===== VIDEO INFO ===== */}
             {isVideo && (
-              <div className="text-xs opacity-80">
-                {msg.attachment?.size && formatFileSize(msg.attachment.size)}
+              <div className="flex items-center gap-3">
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl ${
+                    isMine ? "bg-blue-500" : "bg-slate-100"
+                  }`}
+                >
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-medium">{msg.attachment?.filename || "Video file"}</p>
+                  {msg.attachment?.size && (
+                    <p className={`text-xs ${isMine ? "text-blue-100" : "text-slate-500"}`}>
+                      {formatFileSize(msg.attachment.size)}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
 
             {/* ===== FILE / PDF / DOC ===== */}
             {!isImage && !isText && (
-              <div className="flex flex-col gap-1 mt-1">
-                <span className="font-medium">{msg.attachment?.filename}</span>
+              <div className="mt-1 flex items-center gap-3">
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                    isMine ? "bg-blue-500" : "bg-slate-100"
+                  }`}
+                >
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                <span className="block truncate font-medium">{msg.attachment?.filename}</span>
                 {msg.attachment?.size && (
-                  <span className="text-xs opacity-70">
+                    <span className={`text-xs ${isMine ? "text-blue-100" : "text-slate-500"}`}>
                     {formatFileSize(msg.attachment.size)}
                   </span>
                 )}
+                </div>
               </div>
             )}
 
             {/* ===== TEXT ===== */}
-            {isText && <p className="whitespace-pre-wrap">{msg.message}</p>}
+            {isText && <p className="whitespace-pre-wrap leading-6">{msg.message}</p>}
 
             {/* ===== ACTIONS ===== */}
             {!isText && (
-              <div className="flex gap-2 mt-2">
+              <div className="mt-3 flex gap-2">
                 <button
                   onClick={() => {
                     if (isImage) setShowImageModal(true);
                     else if (isPdfOrDoc) setShowPdfModal(true);
                     else if (isVideo) setShowVideoModal(true);
                   }}
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                     isMine
-                      ? "bg-blue-600 hover:bg-blue-700 text-white"
-                      : "bg-gray-700 hover:bg-gray-800 text-white"
+                      ? "bg-blue-500 text-white hover:bg-blue-700"
+                      : "bg-slate-900 text-white hover:bg-slate-700"
                   }`}
                 >
+                  <ExternalLink className="h-3.5 w-3.5" />
                   Open
                 </button>
 
@@ -289,12 +314,13 @@ export default function MessageItem({
                       msg.attachment?.filename
                     )
                   }
-                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                     isMine
-                      ? "bg-blue-600 hover:bg-blue-700 text-white"
-                      : "bg-gray-700 hover:bg-gray-800 text-white"
+                      ? "bg-blue-500 text-white hover:bg-blue-700"
+                      : "bg-slate-900 text-white hover:bg-slate-700"
                   }`}
                 >
+                  <Download className="h-3.5 w-3.5" />
                   Download
                 </button>
               </div>

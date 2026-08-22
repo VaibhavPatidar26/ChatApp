@@ -1,5 +1,5 @@
-import React, { useRef, useContext, useState } from "react";
-import { Send, Paperclip, Loader2 } from "lucide-react";
+import { useRef, useContext, useState } from "react";
+import { Loader2, Paperclip, Send } from "lucide-react";
 import { AppContext } from "../Context/AppContext";
 import { uploadFile } from "../Hooks/UploadFiles";
 
@@ -79,53 +79,58 @@ const MessageInput = ({ socketRef }) => {
   };
 
   return (
-    <div className="p-3 border-t bg-white flex items-center gap-2">
-      <input
-        type="text"
-        value={messageInput}
-        onChange={(e) => setMessageInput(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage(messageInput);
-          }
-        }}
-        placeholder="Type a message..."
-        className="flex-1 px-4 py-2 bg-gray-100 rounded-full outline-none text-sm"
-        disabled={isUploading}
-      />
+    <div className="border-t border-slate-200 bg-white px-4 py-3">
+      <div className="flex items-end gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-2 focus-within:border-blue-500 focus-within:bg-white">
+        <input
+          type="text"
+          value={messageInput}
+          onChange={(e) => setMessageInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              sendMessage(messageInput);
+            }
+          }}
+          placeholder={isUploading ? "Uploading file..." : "Message"}
+          className="min-h-10 flex-1 bg-transparent px-2 text-sm text-slate-900 outline-none placeholder:text-slate-400"
+          disabled={isUploading}
+        />
 
-      {/* Hidden file input */}
-      <input
-        type="file"
-        ref={fileInputRef}
-        className="hidden"
-        onChange={handleFileChange}
-        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
-      />
+        {/* Hidden file input */}
+        <input
+          type="file"
+          ref={fileInputRef}
+          className="hidden"
+          onChange={handleFileChange}
+          accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+        />
 
-      {/* File upload button */}
-      <button
-        onClick={() => fileInputRef.current?.click()}
-        className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-        disabled={isUploading}
-        title="Attach file"
-      >
-        {isUploading ? (
-          <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
-        ) : (
-          <Paperclip className="w-5 h-5 text-gray-600" />
-        )}
-      </button>
+        {/* File upload button */}
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-blue-600 disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={isUploading}
+          title="Attach file"
+        >
+          {isUploading ? (
+            <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
+          ) : (
+            <Paperclip className="h-5 w-5" />
+          )}
+        </button>
 
-      {/* Send button */}
-      <button
-        className="bg-blue-500 p-2 rounded-full text-white hover:bg-blue-600 transition-colors disabled:opacity-50"
-        onClick={() => sendMessage(messageInput)}
-        disabled={isUploading || !messageInput.trim()}
-      >
-        <Send className="w-5 h-5" />
-      </button>
+        {/* Send button */}
+        <button
+          type="button"
+          className="rounded-full bg-blue-600 p-2.5 text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          onClick={() => sendMessage(messageInput)}
+          disabled={isUploading || !messageInput.trim()}
+          title="Send"
+        >
+          <Send className="h-5 w-5" />
+        </button>
+      </div>
     </div>
   );
 };

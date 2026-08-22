@@ -1,22 +1,24 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
-import { MoreVertical, Trash } from "lucide-react";
+import React, { useEffect, useContext, useRef } from "react";
+import { MessageCircle, MoreVertical, Phone, Video } from "lucide-react";
 import { AppContext } from "../Context/AppContext";
 import { deleteMessage, getUserChats } from "../api/messages";
 import MessageInput from "./MessageInput";
-import { fetchFileForPreview } from "../Hooks/fetchFile";
-import MessageItem from "./MessageItem";  
-const MessageBody = ({contacts}) => {
+import MessageItem from "./MessageItem";
+
+const MessageBody = ({
+  contacts,
+  socketReady,
+  socketRef,
+  onStartCall,
+  isCallActive,
+}) => {
   const {
     receiverName,
     receiverId,
     userId,
     conversation,
     setConversation,
-    backendUrl,
-    token,
   } = useContext(AppContext);
-  const [fileUrl,setFileUrl] = useState(null);
-  const socketRef = useRef(null);
   const messagesEndRef = useRef(null);
   const prevConversationLengthRef = useRef(0);
 
@@ -50,98 +52,6 @@ const MessageBody = ({contacts}) => {
 
     fetchMessageHistory();
   }, [receiverId, setConversation]);
-
-  // ------------------ WebSocket ------------------
-  useEffect(() => {
-    if (!receiverId || !token) return;
-
-    const wsUrl = backendUrl.startsWith("https")
-      ? backendUrl.replace("https", "wss")
-      : backendUrl.replace("http", "ws");
-
-    const ws = new WebSocket(wsUrl);
-    socketRef.current = ws;
-
-    ws.onopen = () => {
-      ws.send(
-        JSON.stringify({
-          type: "auth",
-          token: token,
-        })
-      );
-      console.log("✅ WebSocket connected");
-    };
-
-    ws.onmessage = (event) => {
-      // ✅ REMOVED: Binary blob handling - we only handle JSON now
-      try {
-        const data = JSON.parse(event.data);
-
-        if (data.type === "received-message") {
-          const msg = data.message; 
-
-          // ✅ Only add message if it belongs to THIS conversation
-          const belongsToThisChat =
-            (String(msg.sender) === String(userId) &&
-              String(msg.receiver) === String(receiverId)) ||
-            (String(msg.sender) === String(receiverId) &&
-              String(msg.receiver) === String(userId));
-
-          if (!belongsToThisChat) {
-            console.log("⭐️ Message not for this chat, ignoring");
-            return;
-          }
-
-          // Prevent duplicate messages
-          setConversation((prev) => {
-            const exists = prev.some((m) => m.id === msg.id);
-            if (exists) {
-              console.log("⭐️ Duplicate message, ignoring");
-              return prev;
-            }
-
-            return [
-              ...prev,
-              {
-                id: msg.id,
-                from: String(msg.sender),
-                to: String(msg.receiver),
-                message: msg.text || msg.fileUrl,
-                fileType: msg.fileType || "text",
-                attachment: msg.attachment,
-                createdAt: msg.createdAt,
-              },
-            ];
-          });
-        }
-
-        if (data.type === "auth-success") {
-          console.log("✅ WebSocket authenticated");
-        }
-
-        if (data.type === "error") {
-          console.error("WebSocket error:", data.message);
-        }
-      } catch (err) {
-        console.error("WS parse error:", err);
-      }
-    };
-
-    ws.onerror = (err) => {
-      console.error("WebSocket error:", err);
-    };
-
-    ws.onclose = () => {
-      console.log("❌ WebSocket disconnected");
-    };
-
-    return () => {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.close();
-      }
-      socketRef.current = null;
-    };
-  }, [receiverId, userId, backendUrl, token, setConversation]);
 
   // ------------------ Smart Auto-scroll ------------------
   // Only scroll when NEW messages are added, not when messages are deleted
@@ -199,30 +109,65 @@ const MessageBody = ({contacts}) => {
   // ------------------ UI ------------------
   if (!receiverName) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <h1 className="text-3xl font-bold text-gray-400">
-          👋 Select a chat to start messaging
-        </h1>
+      <div className="flex h-full items-center justify-center bg-slate-50 px-6">
+        <div className="max-w-sm text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-white text-blue-600 shadow-sm ring-1 ring-slate-200">
+            <MessageCircle className="h-8 w-8" />
+          </div>
+          <h1 className="mt-5 text-2xl font-semibold text-slate-900">Select a conversation</h1>
+          <p className="mt-2 text-sm leading-6 text-slate-500">
+            Choose someone from the sidebar to message, share files, or start a call.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col flex-1 h-screen">
+    <div className="flex h-screen flex-1 flex-col bg-slate-50">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-blue-50 shadow-sm">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-full bg-blue-200 flex items-center justify-center font-bold text-blue-600">
+      <div className="flex items-center justify-between border-b border-slate-200 bg-white px-5 py-3 shadow-sm">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-600 font-semibold text-white">
             {receiverName[0].toUpperCase()}
           </div>
-          <h2 className="font-semibold">{receiverName}</h2>
+          <div className="min-w-0">
+            <h2 className="truncate font-semibold text-slate-950">{receiverName}</h2>
+            <p className="text-xs text-slate-500">Messages and calls are live when connected</p>
+          </div>
         </div>
-        <MoreVertical className="w-5 h-5 text-gray-600 cursor-pointer" />
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onStartCall && onStartCall("audio")}
+            disabled={!receiverId || !socketReady || isCallActive}
+            title="Audio call"
+            className="p-2 rounded-full text-slate-600 hover:bg-slate-100 hover:text-blue-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Phone className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => onStartCall && onStartCall("video")}
+            disabled={!receiverId || !socketReady || isCallActive}
+            title="Video call"
+            className="p-2 rounded-full text-slate-600 hover:bg-slate-100 hover:text-blue-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <Video className="w-5 h-5" />
+          </button>
+          <button
+            type="button"
+            title="More"
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100 hover:text-blue-600"
+          >
+            <MoreVertical className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50">
-        {conversation.map((msg, i) => {
+      <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+        {conversation.map((msg) => {
           const isMine = msg.from === String(userId);
 
           return (

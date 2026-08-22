@@ -1,10 +1,12 @@
 const WebSocket = require("ws");
 const jwt = require("jsonwebtoken");
+const handleCall = require("./handlers/CallHandler");
 const {
   addClient,
   removeClient,
   getClient,
 } = require("./wsStore");
+
 const saveMessage = require("./controllers/saveMessage.controller");
 
 function wssServer(server) {
@@ -67,6 +69,22 @@ function wssServer(server) {
           );
           return;
         }
+
+        const callTypes = [
+          "call-user",
+          "call-accepted",
+          "call-rejected",
+          "offer",
+          "answer",
+          "ice-candidate",
+          "hangup",
+        ];
+
+        if (callTypes.includes(data.type)) {
+          handleCall(data, userId);
+          return;
+        }
+
 
         // ---------- NEW MESSAGE ----------
         if (data.type === "new-message") {

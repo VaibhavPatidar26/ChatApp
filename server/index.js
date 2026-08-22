@@ -17,7 +17,7 @@ dbConnect()
 // Middlewares
 app.use(express.json())
 app.use(cors({
-    origin: FRONTEND_URI,
+    origin: true,
     credentials: true
 }))
 
@@ -33,7 +33,7 @@ const server = http.createServer(app)
 wssServer(server)
 
 // Start Server
-server.listen(PORT, () => {
+server.listen(PORT,"0.0.0.0", () => {
     console.log(`🚀 Server + WSS running on port ${PORT}`)
 })
 app.get("/",(req,res)=>{
