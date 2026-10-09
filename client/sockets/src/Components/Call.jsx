@@ -373,6 +373,7 @@ export const VideoChat = ({
               autoPlay
               playsInline
               muted
+              style={{ transform: "scaleX(-1)" }}
               className="h-28 w-40 object-cover"
             />
           </div>
