@@ -1,5 +1,6 @@
 const Message = require("../models/messageModel");
 const cloudinary = require("../config/cloudinary");
+const fs = require("fs");
 
 async function sendFile(req, res) {
   try {
@@ -41,7 +42,11 @@ async function sendFile(req, res) {
       use_filename: true,
       unique_filename: false,
       type: "upload",
+      timeout: 120000,
     });
+
+    // Clean up temporary local file
+    fs.unlink(file.path, () => {});
 
     const recievedUrl = uploadResult.secure_url;
 
@@ -117,6 +122,9 @@ async function sendFile(req, res) {
       },
     });
   } catch (error) {
+    if (req.file?.path) {
+      fs.unlink(req.file.path, () => {});
+    }
     console.error("File upload error:", error);
     res.status(500).json({
       success: false,

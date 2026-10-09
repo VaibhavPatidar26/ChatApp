@@ -1,4 +1,6 @@
 require("dotenv").config()
+const dns = require("node:dns");
+dns.setDefaultResultOrder("ipv4first");
 const express = require("express")
 const mongoose = require("mongoose")
 const wssServer = require("./wss")
@@ -8,7 +10,7 @@ const userRouter = require("./Routes/userRouter")
 const { dbConnect } = require("./config/mongodb")
 const messageRouter = require("./Routes/messageRouter")
 
-const PORT = process.env.SERVER_PORT || 3000
+const PORT = process.env.PORT || process.env.SERVER_PORT || 3000
 const FRONTEND_URI = process.env.FRONTEND_URL
 const path = require("path")
 const app = express()

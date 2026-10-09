@@ -1,7 +1,7 @@
 import { useRef, useContext, useState } from "react";
 import { Loader2, Paperclip, Send } from "lucide-react";
 import { AppContext } from "../Context/AppContext";
-import { uploadFile } from "../Hooks/UploadFiles";
+import { uploadFile } from "../Hooks/UploadFIles";
 
 const MessageInput = ({ socketRef }) => {
   const {

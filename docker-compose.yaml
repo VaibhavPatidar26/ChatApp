@@ -1,0 +1,18 @@
+services:
+  frontend:
+    image: vaibhav2201/wechat_frontend
+    ports:
+      - "5173:5173"
+    env_file:
+      - frontend.env
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  backend:
+    image: vaibhav2201/wechat_backend
+    ports:
+      - "3000:3000"
+    env_file:
+      - backend.env
+    restart: unless-stopped
