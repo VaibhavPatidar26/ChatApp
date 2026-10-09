@@ -1,7 +1,8 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
 import Sidebar from "./Sidebar";
 import MessageBody from "./MessageBody";
-import Call from "./UI/Call";
+import VideoChat from "./Call";
+import ErrorBoundary from "./ErrorBoundary";
 import { AppContext } from "../Context/AppContext";
 import { getUsers } from "../api/users";
 
@@ -11,25 +12,18 @@ const Chat = () => {
     token,
     userId,
     receiverId,
-    receiverName,
-    setReceiverId,
-    setReceiverName,
     setConversation,
   } = useContext(AppContext);
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [socketReady, setSocketReady] = useState(false);
-  const [callEvent, setCallEvent] = useState(null);
+  // ─── call state lives here so it survives before VideoChat mounts ───
+  const [showCall, setShowCall] = useState(false);
+  const [incomingCallData, setIncomingCallData] = useState(null); // { offer, from }
   const socketRef = useRef(null);
-  const callRef = useRef(null);
-  const contactsRef = useRef([]);
   const latestReceiverIdRef = useRef(receiverId);
   const latestUserIdRef = useRef(userId);
-
-  useEffect(() => {
-    contactsRef.current = contacts;
-  }, [contacts]);
 
   useEffect(() => {
     latestReceiverIdRef.current = receiverId;
@@ -111,35 +105,15 @@ const Chat = () => {
           return;
         }
 
-        if (data.type === "incoming-call") {
-          const caller = contactsRef.current.find(
-            (contact) => String(contact._id) === String(data.from)
-          );
-          if (!latestReceiverIdRef.current) {
-            setReceiverId(data.from);
-            setReceiverName(caller?.Name || "Incoming call");
-          }
-        }
-
-        if (
-          [
-            "incoming-call",
-            "call-accepted",
-            "call-rejected",
-            "call-error",
-            "offer",
-            "answer",
-            "ice-candidate",
-            "hangup",
-          ].includes(data.type)
-        ) {
-          setCallEvent({ ...data, receivedAt: Date.now() });
-          return;
-        }
-
         if (data.type === "auth-success") {
           setSocketReady(true);
           console.log("✅ WebSocket authenticated");
+        }
+
+        // ✅ Incoming call — open modal immediately on receiver side
+        if (data.type === "offer") {
+          setIncomingCallData({ offer: data.offer, from: data.from });
+          setShowCall(true);
         }
 
         if (data.type === "error") {
@@ -168,13 +142,7 @@ const Chat = () => {
         socketRef.current = null;
       }
     };
-  }, [backendUrl, setConversation, setReceiverId, setReceiverName, token]);
-
-  const handleStartCall = (callType) => {
-    if (callRef.current && receiverId) {
-      callRef.current.startCall(receiverId, receiverName, callType);
-    }
-  };
+  }, [backendUrl, setConversation, token]);
 
   return (
     <div className="flex h-screen w-screen bg-slate-100 text-slate-900 overflow-hidden">
@@ -189,19 +157,25 @@ const Chat = () => {
           contacts={contacts}
           socketReady={socketReady}
           socketRef={socketRef}
-          onStartCall={handleStartCall}
-          isCallActive={callRef.current?.isCallActive}
+          onStartCall={() => setShowCall(true)}
         />
       </div>
 
-      {/* Global Call Component: active across chat switching */}
-      <Call
-        ref={callRef}
-        callEvent={callEvent}
-        contacts={contacts}
-        socketReady={socketReady}
-        socketRef={socketRef}
-      />
+      {/* VideoChat Modal wrapped in ErrorBoundary */}
+      {showCall && (
+        <ErrorBoundary onReset={() => setShowCall(false)}>
+          <VideoChat
+            socketRef={socketRef}
+            contacts={contacts}
+            incomingCallData={incomingCallData}
+            setIncomingCallData={setIncomingCallData}
+            onClose={() => {
+              setShowCall(false);
+              setIncomingCallData(null);
+            }}
+          />
+        </ErrorBoundary>
+      )}
     </div>
   );
 };

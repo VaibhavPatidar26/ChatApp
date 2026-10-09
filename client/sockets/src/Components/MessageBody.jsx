@@ -1,5 +1,5 @@
 import React, { useEffect, useContext, useRef } from "react";
-import { MessageCircle, MoreVertical, Phone, Video } from "lucide-react";
+import { MessageCircle, MoreVertical, Video } from "lucide-react";
 import { AppContext } from "../Context/AppContext";
 import { deleteMessage, getUserChats } from "../api/messages";
 import MessageInput from "./MessageInput";
@@ -10,7 +10,6 @@ const MessageBody = ({
   socketReady,
   socketRef,
   onStartCall,
-  isCallActive,
 }) => {
   const {
     receiverName,
@@ -21,6 +20,7 @@ const MessageBody = ({
   } = useContext(AppContext);
   const messagesEndRef = useRef(null);
   const prevConversationLengthRef = useRef(0);
+  // showCall is now owned by Chat.jsx — removed local useState here
 
   // ------------------ Fetch Chat History ------------------
   useEffect(() => {
@@ -116,7 +116,7 @@ const MessageBody = ({
           </div>
           <h1 className="mt-5 text-2xl font-semibold text-slate-900">Select a conversation</h1>
           <p className="mt-2 text-sm leading-6 text-slate-500">
-            Choose someone from the sidebar to message, share files, or start a call.
+            Choose someone from the sidebar to message or share files.
           </p>
         </div>
       </div>
@@ -133,27 +133,18 @@ const MessageBody = ({
           </div>
           <div className="min-w-0">
             <h2 className="truncate font-semibold text-slate-950">{receiverName}</h2>
-            <p className="text-xs text-slate-500">Messages and calls are live when connected</p>
+            <p className="text-xs text-slate-500">Messages are live when connected</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {/* Video call button */}
           <button
             type="button"
-            onClick={() => onStartCall && onStartCall("audio")}
-            disabled={!receiverId || !socketReady || isCallActive}
-            title="Audio call"
-            className="p-2 rounded-full text-slate-600 hover:bg-slate-100 hover:text-blue-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
+            title="Start video call"
+            onClick={onStartCall}
+            className="rounded-full p-2 text-slate-500 hover:bg-blue-50 hover:text-blue-600"
           >
-            <Phone className="w-5 h-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onStartCall && onStartCall("video")}
-            disabled={!receiverId || !socketReady || isCallActive}
-            title="Video call"
-            className="p-2 rounded-full text-slate-600 hover:bg-slate-100 hover:text-blue-600 transition disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Video className="w-5 h-5" />
+            <Video className="h-5 w-5" />
           </button>
           <button
             type="button"

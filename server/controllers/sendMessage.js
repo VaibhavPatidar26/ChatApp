@@ -73,9 +73,8 @@ async function sendFile(req, res) {
 
     const savedMessage = await newMessage.save();
 
-    /* ----------------------------------
-       ✅ WebSocket notify
-    -----------------------------------*/
+   // WebSocket notify
+    
     const { getClient } = require("../wsStore");
     const WebSocket = require("ws");
 
@@ -104,9 +103,9 @@ async function sendFile(req, res) {
       senderSocket.send(JSON.stringify(payload));
     }
 
-    /* ----------------------------------
-       ✅ Response
-    -----------------------------------*/
+   
+      //Response
+  
     res.json({
       success: true,
       message: "File uploaded successfully",

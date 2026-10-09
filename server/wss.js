@@ -1,6 +1,5 @@
 const WebSocket = require("ws");
 const jwt = require("jsonwebtoken");
-const handleCall = require("./handlers/CallHandler");
 const {
   addClient,
   removeClient,
@@ -13,7 +12,7 @@ function wssServer(server) {
   const wss = new WebSocket.Server({ server });
 
   wss.on("connection", (socket) => {
-    console.log("🔌 New WebSocket connection");
+    console.log(" New WebSocket connection");
 
     let userId = null;
 
@@ -56,7 +55,7 @@ function wssServer(server) {
             })
           );
 
-          console.log(`✅ User authenticated: ${userId}`);
+          console.log(` User authenticated: ${userId}`);
           return;
         }
 
@@ -70,25 +69,31 @@ function wssServer(server) {
           return;
         }
 
-        const callTypes = [
-          "call-user",
-          "call-accepted",
-          "call-rejected",
-          "offer",
-          "answer",
-          "ice-candidate",
-          "hangup",
-        ];
 
-        if (callTypes.includes(data.type)) {
-          handleCall(data, userId);
+        //----------WEB-RTC-------
+        const WebRTCTypes = [
+          "ice-candidate","offer","accept-Call","Reject-Call"
+        ]
+
+        if (WebRTCTypes.includes(data.type)) {
+          const ReciveSocket = getClient(data.to);
+
+          // ✅ Fix 3: guard null socket AND use correct casing readyState
+          if (ReciveSocket?.readyState !== WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: "error", message: "Peer is not online" }));
+            return;
+          }
+
+          ReciveSocket.send(JSON.stringify({
+            ...data,
+            from: userId,
+          }));
           return;
         }
 
-
         // ---------- NEW MESSAGE ----------
         if (data.type === "new-message") {
-          // ✅ Save message to database first
+    
           saveMessage(data.message)
             .then((savedMessage) => {
               const payload = JSON.stringify({
@@ -102,7 +107,7 @@ function wssServer(server) {
                 receiverSocket.send(payload);
               }
 
-              // send back to sender (IMPORTANT)
+              // send back to sender 
               const senderSocket = getClient(userId);
               if (senderSocket?.readyState === WebSocket.OPEN) {
                 senderSocket.send(payload);
@@ -126,7 +131,7 @@ function wssServer(server) {
             });
         }
 
-        // ---------- READ RECEIPT ----------
+        // ---------- READ -----------
         if (data.type === "message-read") {
           const receiverSocket = getClient(data.to);
           if (receiverSocket?.readyState === WebSocket.OPEN) {
@@ -149,7 +154,7 @@ function wssServer(server) {
     socket.on("close", () => {
       if (userId) {
         removeClient(userId, socket);
-        console.log(`❌ User disconnected: ${userId}`);
+        console.log(` User disconnected: ${userId}`);
       }
     });
 
