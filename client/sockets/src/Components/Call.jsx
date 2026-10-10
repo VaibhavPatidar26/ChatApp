@@ -3,7 +3,12 @@ import { PhoneOff, Phone, Video, VideoOff, Mic, MicOff, AlertCircle } from "luci
 import { AppContext } from "../Context/AppContext";
 
 const ICE_SERVERS = {
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" },
+    { urls: "stun:stun2.l.google.com:19302" },
+    { urls: "stun:stun.cloudflare.com:3478" },
+  ],
 };
 
 export const VideoChat = ({
@@ -19,6 +24,7 @@ export const VideoChat = ({
   const remoteVideoRef = useRef(null);
   const pc = useRef(null);
   const localStream = useRef(null);
+  const queuedCandidates = useRef([]);
 
   const [isReady, setIsReady] = useState(false);
   const [callState, setCallState] = useState(incomingCallData ? "incoming" : "idle"); // idle | calling | in-call | incoming
@@ -45,6 +51,7 @@ export const VideoChat = ({
 
   // Clean up media and peer connection
   const cleanupCall = () => {
+    queuedCandidates.current = [];
     if (pc.current) {
       try {
         pc.current.close();
@@ -153,6 +160,18 @@ export const VideoChat = ({
     };
   }, []);
 
+  const drainCandidateQueue = async () => {
+    if (!pc.current || !pc.current.remoteDescription) return;
+    while (queuedCandidates.current.length > 0) {
+      const candidate = queuedCandidates.current.shift();
+      try {
+        await pc.current.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (err) {
+        console.warn("Error adding queued ICE candidate:", err);
+      }
+    }
+  };
+
   // Listen for signaling messages (accept-Call, ice-candidate, Reject-Call)
   useEffect(() => {
     if (!socketRef?.current) return;
@@ -174,6 +193,7 @@ export const VideoChat = ({
                 new RTCSessionDescription(data.answer)
               );
               setCallState("in-call");
+              await drainCandidateQueue();
             } catch (err) {
               console.error("Error setting remote description on accept:", err);
             }
@@ -187,11 +207,19 @@ export const VideoChat = ({
           break;
 
         case "ice-candidate":
-          if (pc.current && data.candidate) {
-            try {
-              await pc.current.addIceCandidate(new RTCIceCandidate(data.candidate));
-            } catch (err) {
-              console.error("Error adding ice candidate:", err);
+          if (data.candidate) {
+            if (
+              pc.current &&
+              pc.current.remoteDescription &&
+              pc.current.remoteDescription.type
+            ) {
+              try {
+                await pc.current.addIceCandidate(new RTCIceCandidate(data.candidate));
+              } catch (err) {
+                console.error("Error adding ice candidate:", err);
+              }
+            } else {
+              queuedCandidates.current.push(data.candidate);
             }
           }
           break;
@@ -206,25 +234,32 @@ export const VideoChat = ({
   }, [socketRef, onClose, setIncomingCallData]);
 
   const createPeerConnection = () => {
-    pc.current = new RTCPeerConnection(ICE_SERVERS);
+    if (pc.current) return pc.current;
+
+    const newPc = new RTCPeerConnection(ICE_SERVERS);
+    pc.current = newPc;
 
     if (localStream.current) {
       localStream.current.getTracks().forEach((track) => {
         try {
-          pc.current.addTrack(track, localStream.current);
+          newPc.addTrack(track, localStream.current);
         } catch (e) {
           console.error("Error adding track:", e);
         }
       });
     }
 
-    pc.current.ontrack = (event) => {
+    newPc.ontrack = (event) => {
+      console.log("Remote stream received:", event.streams);
       if (remoteVideoRef.current && event.streams?.[0]) {
         remoteVideoRef.current.srcObject = event.streams[0];
+        remoteVideoRef.current.play().catch((err) => {
+          console.warn("Mobile autoplay restriction, interaction needed:", err);
+        });
       }
     };
 
-    pc.current.onicecandidate = (event) => {
+    newPc.onicecandidate = (event) => {
       if (event.candidate && activePeerId) {
         send({
           type: "ice-candidate",
@@ -233,6 +268,17 @@ export const VideoChat = ({
         });
       }
     };
+
+    newPc.onconnectionstatechange = () => {
+      console.log("WebRTC ConnectionState:", newPc.connectionState);
+      if (newPc.connectionState === "connected") {
+        setCallState("in-call");
+      } else if (newPc.connectionState === "failed") {
+        setErrorMessage("Peer connection failed. Check if both devices are on compatible networks.");
+      }
+    };
+
+    return newPc;
   };
 
   // Initiator: start the call
@@ -269,6 +315,7 @@ export const VideoChat = ({
 
       send({ type: "accept-Call", answer, to: incomingCallData.from });
       setCallState("in-call");
+      await drainCandidateQueue();
     } catch (err) {
       console.error("Failed to answer call:", err);
       setErrorMessage(err?.message || "Failed to accept call");
