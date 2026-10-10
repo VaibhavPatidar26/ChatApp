@@ -401,6 +401,7 @@ export const VideoChat = ({
             ref={remoteVideoRef}
             autoPlay
             playsInline
+            style={{ transform: "scaleX(-1)" }}
             className="h-full w-full object-cover min-h-[360px]"
           />
 
