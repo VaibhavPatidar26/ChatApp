@@ -17,6 +17,8 @@ const app = express()
 
 dbConnect()
 // Middlewares
+
+
 app.use(express.json())
 app.use(cors({
     origin: "*"
@@ -37,6 +39,9 @@ wssServer(server)
 // Start Server
 server.listen(PORT,"0.0.0.0", () => {
     console.log(`🚀 Server + WSS running on port ${PORT}`)
+})
+app.get("/health",function(req,res){
+    res.send("server is healthy")
 })
 app.get("/",(req,res)=>{
     res.send("server running")
